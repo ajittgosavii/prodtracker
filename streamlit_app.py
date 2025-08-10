@@ -582,7 +582,10 @@ class ProductivityTracker:
         st.markdown("""
         <div style="text-align: center; padding: 1rem 0;">
             <h1>🚀 Enterprise Productivity Tracker</h1>
-            <p style="font-size: 1.1rem; color: #666; margin-bottom: 2rem;">Secure cloud-based productivity tracking for Database & Cloud Operations teams</p>
+            <p style="font-size: 1.1rem; color: #666; margin-bottom: 1rem;">Secure cloud-based productivity tracking for Database & Cloud Operations teams</p>
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 0.6rem; border-radius: 0.5rem; color: white; margin: 1rem auto; max-width: 500px;">
+                <p style="margin: 0; font-size: 0.9rem;">🔒 Your data is securely stored on Google Cloud infrastructure with enterprise-grade privacy controls.</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
         
