@@ -26,7 +26,8 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main > div {
-        padding-top: 2rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
     }
     .stMetric {
         background-color: #f8f9fa;
@@ -50,18 +51,27 @@ st.markdown("""
         margin: 0.5rem 0;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .auth-container {
-        max-width: 400px;
-        margin: 0 auto;
-        padding: 2rem;
-        background: white;
-        border-radius: 1rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
     .status-excellent { color: #28a745; font-weight: bold; }
     .status-good { color: #17a2b8; font-weight: bold; }
     .status-warning { color: #ffc107; font-weight: bold; }
     .status-poor { color: #dc3545; font-weight: bold; }
+    
+    /* Reduce spacing in tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    /* Compact form styling */
+    .stForm {
+        border: none;
+        padding: 0;
+    }
+    
+    /* Reduce expander spacing */
+    .streamlit-expanderHeader {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -559,105 +569,97 @@ class ProductivityTracker:
     
     def show_auth_page(self):
         """Display authentication interface"""
+        # Compact header
         st.markdown("""
-        <div style="text-align: center; padding: 2rem 0;">
+        <div style="text-align: center; padding: 1rem 0;">
             <h1>🚀 Enterprise Productivity Tracker</h1>
-            <p style="font-size: 1.2rem; color: #666;">Secure cloud-based productivity tracking for Database & Cloud Operations teams</p>
+            <p style="font-size: 1.1rem; color: #666; margin-bottom: 2rem;">Secure cloud-based productivity tracking for Database & Cloud Operations teams</p>
         </div>
         """, unsafe_allow_html=True)
         
+        # Create centered container
         col1, col2, col3 = st.columns([1, 2, 1])
         
         with col2:
             tab1, tab2 = st.tabs(["🔐 Sign In", "📝 Register"])
             
             with tab1:
-                with st.container():
-                    st.markdown('<div class="auth-container">', unsafe_allow_html=True)
+                st.subheader("🔐 Sign In to Your Account")
+                
+                with st.form("login_form"):
+                    email = st.text_input("📧 Email Address", placeholder="your.email@company.com")
+                    password = st.text_input("🔒 Password", type="password")
                     
-                    st.subheader("🔐 Sign In to Your Account")
+                    remember_me = st.checkbox("Remember me")
                     
-                    with st.form("login_form"):
-                        email = st.text_input("📧 Email Address", placeholder="your.email@company.com")
-                        password = st.text_input("🔒 Password", type="password")
-                        
-                        remember_me = st.checkbox("Remember me")
-                        
-                        submit = st.form_submit_button("🚀 Sign In", use_container_width=True, type="primary")
-                        
-                        if submit and email and password:
-                            with st.spinner("Authenticating..."):
-                                user = self.authenticate_user(email, password)
-                                if user:
-                                    st.session_state.user = user
-                                    st.session_state.authenticated = True
-                                    st.success("✅ Login successful!")
-                                    st.rerun()
-                                else:
-                                    st.error("❌ Invalid credentials. Please try again.")
+                    submit = st.form_submit_button("🚀 Sign In", use_container_width=True, type="primary")
                     
-                    # Add forgot password outside the form
-                    if st.button("🔑 Forgot Password?", type="secondary", use_container_width=True):
-                        st.info("Please contact your administrator for password reset assistance.")
-                    
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    if submit and email and password:
+                        with st.spinner("Authenticating..."):
+                            user = self.authenticate_user(email, password)
+                            if user:
+                                st.session_state.user = user
+                                st.session_state.authenticated = True
+                                st.success("✅ Login successful!")
+                                st.rerun()
+                            else:
+                                st.error("❌ Invalid credentials. Please try again.")
+                
+                # Add forgot password outside the form
+                if st.button("🔑 Forgot Password?", type="secondary", use_container_width=True):
+                    st.info("Please contact your administrator for password reset assistance.")
             
             with tab2:
-                with st.container():
-                    st.markdown('<div class="auth-container">', unsafe_allow_html=True)
+                st.subheader("📝 Create New Account")
+                st.info("🔒 All data is securely stored in Google Cloud Firestore with enterprise-grade encryption.")
+                
+                with st.form("register_form"):
+                    name = st.text_input("👤 Full Name")
+                    email = st.text_input("📧 Email Address")
+                    password = st.text_input("🔒 Password", type="password", help="Minimum 6 characters")
+                    confirm_password = st.text_input("🔒 Confirm Password", type="password")
                     
-                    st.subheader("📝 Create New Account")
-                    st.info("🔒 All data is securely stored in Google Cloud Firestore with enterprise-grade encryption.")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        role = st.selectbox("🎭 Role", ["employee", "manager", "admin"])
+                    with col2:
+                        team = st.selectbox("👥 Team", list(self.team_configs.keys()))
                     
-                    with st.form("register_form"):
-                        name = st.text_input("👤 Full Name")
-                        email = st.text_input("📧 Email Address")
-                        password = st.text_input("🔒 Password", type="password", help="Minimum 6 characters")
-                        confirm_password = st.text_input("🔒 Confirm Password", type="password")
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            role = st.selectbox("🎭 Role", ["employee", "manager", "admin"])
-                        with col2:
-                            team = st.selectbox("👥 Team", list(self.team_configs.keys()))
-                        
-                        location_type = st.selectbox("🌍 Location Type", 
-                                                   ["onshore", "offshore"], 
-                                                   help="Onshore: 8 hours/day | Offshore: 8.8 hours/day")
-                        
-                        if team and location_type:
-                            team_config = self.team_configs[team]
-                            expected_hours = 8.8 if location_type == 'offshore' else 8.0
-                            st.info(f"""
-                            **{team_config.icon} {team_config.name}** ({location_type.title()})
-                            
-                            {team_config.description}
-                            
-                            📊 **Expected Hours:** {expected_hours} hours/day
-                            """)
-                        
-                        terms = st.checkbox("I agree to the Terms of Service and Privacy Policy")
-                        
-                        submit = st.form_submit_button("📝 Create Account", use_container_width=True, type="primary")
-                        
-                        if submit:
-                            if not all([name, email, password, confirm_password]):
-                                st.error("Please fill in all fields.")
-                            elif password != confirm_password:
-                                st.error("Passwords do not match.")
-                            elif len(password) < 6:
-                                st.error("Password must be at least 6 characters long.")
-                            elif not terms:
-                                st.error("Please accept the Terms of Service.")
-                            else:
-                                with st.spinner("Creating account..."):
-                                    if self.register_user(name, email, password, role, team, location_type):
-                                        st.success("✅ Account created successfully! Please sign in with your credentials.")
-                                        st.balloons()
-                                    else:
-                                        st.error("❌ Account creation failed. Email might already exist.")
+                    location_type = st.selectbox("🌍 Location Type", 
+                                               ["onshore", "offshore"], 
+                                               help="Onshore: 8 hours/day | Offshore: 8.8 hours/day")
                     
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    if team and location_type:
+                        team_config = self.team_configs[team]
+                        expected_hours = 8.8 if location_type == 'offshore' else 8.0
+                        st.info(f"""
+                        **{team_config.icon} {team_config.name}** ({location_type.title()})
+                        
+                        {team_config.description}
+                        
+                        📊 **Expected Hours:** {expected_hours} hours/day
+                        """)
+                    
+                    terms = st.checkbox("I agree to the Terms of Service and Privacy Policy")
+                    
+                    submit = st.form_submit_button("📝 Create Account", use_container_width=True, type="primary")
+                    
+                    if submit:
+                        if not all([name, email, password, confirm_password]):
+                            st.error("Please fill in all fields.")
+                        elif password != confirm_password:
+                            st.error("Passwords do not match.")
+                        elif len(password) < 6:
+                            st.error("Password must be at least 6 characters long.")
+                        elif not terms:
+                            st.error("Please accept the Terms of Service.")
+                        else:
+                            with st.spinner("Creating account..."):
+                                if self.register_user(name, email, password, role, team, location_type):
+                                    st.success("✅ Account created successfully! Please sign in with your credentials.")
+                                    st.balloons()
+                                else:
+                                    st.error("❌ Account creation failed. Email might already exist.")
     
     def show_main_interface(self):
         """Display main application interface"""
