@@ -581,11 +581,7 @@ class ProductivityTracker:
                         email = st.text_input("📧 Email Address", placeholder="your.email@company.com")
                         password = st.text_input("🔒 Password", type="password")
                         
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            remember_me = st.checkbox("Remember me")
-                        with col2:
-                            forgot_password = st.button("Forgot Password?", type="secondary")
+                        remember_me = st.checkbox("Remember me")
                         
                         submit = st.form_submit_button("🚀 Sign In", use_container_width=True, type="primary")
                         
@@ -599,6 +595,10 @@ class ProductivityTracker:
                                     st.rerun()
                                 else:
                                     st.error("❌ Invalid credentials. Please try again.")
+                    
+                    # Add forgot password outside the form
+                    if st.button("🔑 Forgot Password?", type="secondary", use_container_width=True):
+                        st.info("Please contact your administrator for password reset assistance.")
                     
                     st.markdown('</div>', unsafe_allow_html=True)
             
