@@ -846,27 +846,112 @@ class ProductivityTracker:
         if not df.empty:
             df['date'] = pd.to_datetime(df['date'])
             
-            # Calendar heatmap
-            calendar_data = df.set_index('date')['total_hours'].reindex(
-                pd.date_range(start_date, end_date), fill_value=0
-            )
+            # Create a complete date range for the month
+            month_dates = pd.date_range(start_date, end_date)
+            calendar_data = df.set_index('date')['total_hours'].reindex(month_dates, fill_value=0)
             
-            fig = px.imshow(
-                calendar_data.values.reshape(-1, 7),
-                labels=dict(x="Day of Week", y="Week", color="Hours"),
-                x=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                title="📅 Monthly Activity Heatmap"
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            # Find the first Monday of the calendar (might be in previous month)
+            first_day = start_date
+            first_monday = first_day - timedelta(days=first_day.weekday())
+            
+            # Find the last Sunday of the calendar (might be in next month) 
+            last_day = end_date
+            last_sunday = last_day + timedelta(days=(6 - last_day.weekday()))
+            
+            # Create full calendar range (complete weeks)
+            full_calendar_range = pd.date_range(first_monday, last_sunday)
+            
+            # Reindex with full calendar range, filling missing values with 0
+            full_calendar_data = calendar_data.reindex(full_calendar_range, fill_value=0)
+            
+            # Now we can safely reshape into weeks (should be divisible by 7)
+            try:
+                weeks = len(full_calendar_range) // 7
+                calendar_matrix = full_calendar_data.values.reshape(weeks, 7)
+                
+                # Create date labels for the heatmap
+                date_labels = []
+                for i in range(weeks):
+                    week_dates = []
+                    for j in range(7):
+                        date_idx = i * 7 + j
+                        if date_idx < len(full_calendar_range):
+                            date_obj = full_calendar_range[date_idx]
+                            if start_date <= date_obj <= end_date:
+                                week_dates.append(date_obj.strftime('%d'))
+                            else:
+                                week_dates.append('')  # Days outside current month
+                        else:
+                            week_dates.append('')
+                    date_labels.append(week_dates)
+                
+                # Create the heatmap
+                fig = go.Figure(data=go.Heatmap(
+                    z=calendar_matrix,
+                    x=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    y=[f'Week {i+1}' for i in range(weeks)],
+                    colorscale='Blues',
+                    showscale=True,
+                    hoverongaps=False,
+                    colorbar=dict(title="Hours")
+                ))
+                
+                # Add text annotations for dates
+                for i in range(weeks):
+                    for j in range(7):
+                        if i < len(date_labels) and j < len(date_labels[i]) and date_labels[i][j]:
+                            fig.add_annotation(
+                                x=j, y=i,
+                                text=date_labels[i][j],
+                                showarrow=False,
+                                font=dict(color="white" if calendar_matrix[i][j] > 4 else "black", size=10)
+                            )
+                
+                fig.update_layout(
+                    title="📅 Monthly Activity Heatmap",
+                    xaxis_title="Day of Week",
+                    yaxis_title="Week",
+                    height=400
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+            except Exception as e:
+                # Fallback to simple bar chart if heatmap fails
+                st.warning("Calendar heatmap unavailable, showing daily hours chart instead.")
+                
+                fig = px.bar(
+                    x=calendar_data.index,
+                    y=calendar_data.values,
+                    title="📊 Daily Hours for Selected Month",
+                    labels={'x': 'Date', 'y': 'Hours'}
+                )
+                fig.update_xaxis(tickangle=45)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        else:
+            st.info("No data available for the selected month.")
         
         # Monthly summary
         if not df.empty:
+            st.markdown("### 📊 Monthly Summary")
+            
             col1, col2, col3, col4 = st.columns(4)
             
             total_hours = df['total_hours'].sum()
             working_days = len(df[df['total_hours'] > 0])
             avg_hours = total_hours / max(working_days, 1)
-            best_day = df.loc[df['total_hours'].idxmax(), 'date'].strftime('%Y-%m-%d')
+            
+            # Find best day safely
+            if len(df) > 0:
+                best_day_idx = df['total_hours'].idxmax()
+                best_day = df.loc[best_day_idx, 'date']
+                if isinstance(best_day, str):
+                    best_day_str = best_day
+                else:
+                    best_day_str = best_day.strftime('%Y-%m-%d')
+            else:
+                best_day_str = "N/A"
             
             with col1:
                 st.metric("📊 Total Hours", f"{total_hours:.1f}h")
@@ -875,7 +960,32 @@ class ProductivityTracker:
             with col3:
                 st.metric("🎯 Average Hours", f"{avg_hours:.1f}h")
             with col4:
-                st.metric("🏆 Best Day", best_day)
+                st.metric("🏆 Best Day", best_day_str)
+            
+            # Show detailed breakdown
+            if len(df) > 0:
+                st.markdown("### 📋 Daily Breakdown")
+                
+                # Create a summary table
+                summary_df = df[['date', 'total_hours', 'work_location', 'mood_score', 'energy_level', 'notes']].copy()
+                summary_df = summary_df[summary_df['total_hours'] > 0]  # Only show working days
+                summary_df = summary_df.sort_values('date', ascending=False)
+                
+                # Format the display
+                summary_df['date'] = pd.to_datetime(summary_df['date']).dt.strftime('%Y-%m-%d (%A)')
+                summary_df['total_hours'] = summary_df['total_hours'].round(1)
+                summary_df['notes'] = summary_df['notes'].fillna('').str[:100] + '...'  # Truncate long notes
+                
+                summary_df.columns = ['Date', 'Hours', 'Location', 'Mood', 'Energy', 'Notes']
+                
+                st.dataframe(
+                    summary_df,
+                    use_container_width=True,
+                    hide_index=True
+                )
+        
+        else:
+            st.info("No entries found for the selected month. Start by adding some daily entries!")
     
     def show_settings(self, user: Dict):
         """Show user settings"""
@@ -930,7 +1040,6 @@ class ProductivityTracker:
         
         with tab2:
             self.show_team_analytics(user)
-            self.update_analytics(user)
         
         with tab3:
             self.show_team_reports(user)
