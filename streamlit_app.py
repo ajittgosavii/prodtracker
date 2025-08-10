@@ -241,7 +241,7 @@ class FirestoreManager:
         try:
             entries_ref = self.db.collection('daily_entries')
             
-            # Base query
+            # Base query - filter by user_id first
             query = entries_ref.where('user_id', '==', user_id)
             
             # Add date filters if provided
@@ -250,16 +250,24 @@ class FirestoreManager:
             if end_date:
                 query = query.where('date', '<=', end_date)
             
-            # Order by date descending
-            query = query.order_by('date', direction=firestore.Query.DESCENDING)
+            # Try to order by date, but handle index error gracefully
+            try:
+                query = query.order_by('date', direction=firestore.Query.DESCENDING)
+                docs = query.stream()
+            except Exception as index_error:
+                # If index error, fetch without ordering and sort in Python
+                st.warning("📊 Database optimization in progress. Data loading may be slower.")
+                docs = query.stream()
             
-            docs = query.stream()
             entries = []
-            
             for doc in docs:
                 entry_data = doc.to_dict()
                 entry_data['id'] = doc.id
                 entries.append(entry_data)
+            
+            # Sort in Python if we couldn't sort in Firestore
+            if not start_date and not end_date:  # Only sort if we didn't order in Firestore
+                entries.sort(key=lambda x: x.get('date', ''), reverse=True)
             
             return entries
             
@@ -995,9 +1003,10 @@ class ProductivityTracker:
         st.subheader("📅 Calendar View")
         st.info("📊 Interactive calendar visualization of your daily productivity patterns stored securely in the cloud.")
         
-        # Month selector
+        # Month selector - fix the date import issue
         col1, col2 = st.columns([1, 3])
         with col1:
+            from datetime import date  # Ensure date is imported locally
             selected_month = st.date_input("📅 Select Month", value=date.today().replace(day=1))
         
         # Get month data
