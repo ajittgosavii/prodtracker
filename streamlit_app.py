@@ -166,9 +166,9 @@ class FirestoreManager:
     def get_user_by_email(self, email: str) -> Optional[Dict]:
         """Get user by email from Firestore"""
         try:
-            # Query users collection by email (using modern syntax)
+            # Query users collection by email (using simple syntax)
             users_ref = self.db.collection('users')
-            query = users_ref.where(filter=('email', '==', email)).limit(1)
+            query = users_ref.where('email', '==', email).limit(1)
             docs = query.stream()
             
             for doc in docs:
@@ -241,14 +241,14 @@ class FirestoreManager:
         try:
             entries_ref = self.db.collection('daily_entries')
             
-            # Base query - filter by user_id first (using modern syntax)
-            query = entries_ref.where(filter=('user_id', '==', user_id))
+            # Base query - filter by user_id first (using simple syntax)
+            query = entries_ref.where('user_id', '==', user_id)
             
-            # Add date filters if provided (using modern syntax)
+            # Add date filters if provided (using simple syntax)
             if start_date:
-                query = query.where(filter=('date', '>=', start_date))
+                query = query.where('date', '>=', start_date)
             if end_date:
-                query = query.where(filter=('date', '<=', end_date))
+                query = query.where('date', '<=', end_date)
             
             # Try to order by date, but handle index error gracefully
             try:
@@ -279,7 +279,7 @@ class FirestoreManager:
         """Get team members from Firestore"""
         try:
             users_ref = self.db.collection('users')
-            query = users_ref.where(filter=('team', '==', team)).where(filter=('role', '==', role)).where(filter=('active', '==', True))
+            query = users_ref.where('team', '==', team).where('role', '==', role).where('active', '==', True)
             
             docs = query.stream()
             members = []
@@ -324,10 +324,10 @@ class FirestoreManager:
             entries_ref = self.db.collection('daily_entries')
             total_entries = len(list(entries_ref.stream()))
             
-            # Count today's active users (using modern syntax)
+            # Count today's active users (using simple syntax)
             from datetime import date
             today = date.today().isoformat()
-            today_entries = entries_ref.where(filter=('date', '==', today)).stream()
+            today_entries = entries_ref.where('date', '==', today).stream()
             active_today = len(set(doc.to_dict()['user_id'] for doc in today_entries))
             
             return {
