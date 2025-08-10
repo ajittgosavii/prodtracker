@@ -920,13 +920,19 @@ class ProductivityTracker:
                 # Fallback to simple bar chart if heatmap fails
                 st.warning("Calendar heatmap unavailable, showing daily hours chart instead.")
                 
+                # Create a proper dataframe for the bar chart
+                chart_df = pd.DataFrame({
+                    'Date': calendar_data.index,
+                    'Hours': calendar_data.values
+                })
+                
                 fig = px.bar(
-                    x=calendar_data.index,
-                    y=calendar_data.values,
-                    title="📊 Daily Hours for Selected Month",
-                    labels={'x': 'Date', 'y': 'Hours'}
+                    chart_df,
+                    x='Date',
+                    y='Hours',
+                    title="📊 Daily Hours for Selected Month"
                 )
-                fig.update_xaxis(tickangle=45)
+                fig.update_layout(xaxis_tickangle=45)
                 st.plotly_chart(fig, use_container_width=True)
         
         else:
