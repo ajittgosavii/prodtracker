@@ -621,24 +621,45 @@ class ProductivityTracker:
                     
                     col1, col2 = st.columns(2)
                     with col1:
-                        role = st.selectbox("🎭 Role", ["employee", "manager", "admin"])
+                        role = st.selectbox("🎭 Role", ["employee", "manager", "admin"], key="reg_role")
                     with col2:
-                        team = st.selectbox("👥 Team", list(self.team_configs.keys()))
+                        team = st.selectbox("👥 Team", list(self.team_configs.keys()), key="reg_team")
                     
                     location_type = st.selectbox("🌍 Location Type", 
                                                ["onshore", "offshore"], 
-                                               help="Onshore: 8 hours/day | Offshore: 8.8 hours/day")
+                                               help="Onshore: 8 hours/day | Offshore: 8.8 hours/day",
+                                               key="reg_location")
                     
+                    # Show team info dynamically
                     if team and location_type:
                         team_config = self.team_configs[team]
                         expected_hours = 8.8 if location_type == 'offshore' else 8.0
-                        st.info(f"""
-                        **{team_config.icon} {team_config.name}** ({location_type.title()})
                         
-                        {team_config.description}
-                        
-                        📊 **Expected Hours:** {expected_hours} hours/day
-                        """)
+                        # Display team-specific information
+                        if team == 'database-operations':
+                            st.info(f"""
+                            **🗃️ Database Operations** ({location_type.title()})
+                            
+                            Database monitoring, troubleshooting, maintenance, and operational excellence.
+                            
+                            📊 **Expected Hours:** {expected_hours} hours/day
+                            """)
+                        elif team == 'migration-factory':
+                            st.info(f"""
+                            **🔄 Database Migration Factory** ({location_type.title()})
+                            
+                            Database migration projects, data transfer, and migration process optimization.
+                            
+                            📊 **Expected Hours:** {expected_hours} hours/day
+                            """)
+                        elif team == 'backoffice-cloud':
+                            st.info(f"""
+                            **☁️ Back Office Cloud Operations** ({location_type.title()})
+                            
+                            Cloud infrastructure management and seamless service delivery.
+                            
+                            📊 **Expected Hours:** {expected_hours} hours/day
+                            """)
                     
                     terms = st.checkbox("I agree to the Terms of Service and Privacy Policy")
                     
