@@ -568,6 +568,87 @@ class ProductivityTracker:
             insights.append("⚡ Low energy levels. Ensure adequate rest and consider workload optimization.")
         
         return insights
+    def export_data(self, user_id: str, format_type: str) -> bytes:
+        """Export user data in specified format"""
+        try:
+            # Get user entries from Firestore
+            entries = self.db.get_user_entries(user_id)
+            
+            if not entries:
+                return b"No data available for export"
+            
+            # Convert to DataFrame for easier manipulation
+            df = pd.DataFrame(entries)
+            
+            # Clean up the data for export
+            export_df = df.copy()
+            
+            # Flatten activity_data if it exists
+            if 'activity_data' in export_df.columns:
+                # Extract activity data into separate columns
+                activity_cols = {}
+                for idx, row in export_df.iterrows():
+                    if isinstance(row['activity_data'], dict):
+                        for activity, hours in row['activity_data'].items():
+                            if activity not in activity_cols:
+                                activity_cols[activity] = [0] * len(export_df)
+                            activity_cols[activity][idx] = hours
+                
+                # Add activity columns to dataframe
+                for activity, values in activity_cols.items():
+                    export_df[f'activity_{activity}'] = values
+                
+                # Remove the original activity_data column
+                export_df = export_df.drop('activity_data', axis=1)
+            
+            # Remove internal fields
+            columns_to_remove = ['id', 'user_id']
+            export_df = export_df.drop(columns=[col for col in columns_to_remove if col in export_df.columns])
+            
+            # Format the data based on requested format
+            if format_type == 'csv':
+                output = io.StringIO()
+                export_df.to_csv(output, index=False)
+                return output.getvalue().encode('utf-8')
+            
+            elif format_type == 'excel':
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    export_df.to_excel(writer, sheet_name='Productivity_Data', index=False)
+                    
+                    # Add a summary sheet
+                    if not export_df.empty:
+                        summary_data = {
+                            'Metric': ['Total Entries', 'Total Hours', 'Average Daily Hours', 'Date Range'],
+                            'Value': [
+                                len(export_df),
+                                export_df['total_hours'].sum() if 'total_hours' in export_df.columns else 0,
+                                export_df['total_hours'].mean() if 'total_hours' in export_df.columns else 0,
+                                f"{export_df['date'].min()} to {export_df['date'].max()}" if 'date' in export_df.columns else 'N/A'
+                            ]
+                        }
+                        summary_df = pd.DataFrame(summary_data)
+                        summary_df.to_excel(writer, sheet_name='Summary', index=False)
+                
+                output.seek(0)
+                return output.read()
+            
+            elif format_type == 'json':
+                # Convert DataFrame to JSON
+                json_data = {
+                    'export_date': datetime.now().isoformat(),
+                    'total_entries': len(export_df),
+                    'data': export_df.to_dict('records')
+                }
+                return json.dumps(json_data, indent=2, default=str).encode('utf-8')
+            
+            else:
+                return b"Invalid format specified"
+        
+    except Exception as e:
+        st.error(f"Export failed: {str(e)}")
+        return b"Export failed due to an error"
+    
     
     def run(self):
         """Main application runner"""
