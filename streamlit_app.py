@@ -612,26 +612,35 @@ class ProductivityTracker:
                 return output.getvalue().encode('utf-8')
             
             elif format_type == 'excel':
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    export_df.to_excel(writer, sheet_name='Productivity_Data', index=False)
+                try:
+                    import openpyxl
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                        export_df.to_excel(writer, sheet_name='Productivity_Data', index=False)
+                        
+                        # Add a summary sheet
+                        if not export_df.empty:
+                            summary_data = {
+                                'Metric': ['Total Entries', 'Total Hours', 'Average Daily Hours', 'Date Range'],
+                                'Value': [
+                                    len(export_df),
+                                    export_df['total_hours'].sum() if 'total_hours' in export_df.columns else 0,
+                                    export_df['total_hours'].mean() if 'total_hours' in export_df.columns else 0,
+                                    f"{export_df['date'].min()} to {export_df['date'].max()}" if 'date' in export_df.columns else 'N/A'
+                                ]
+                            }
+                            summary_df = pd.DataFrame(summary_data)
+                            summary_df.to_excel(writer, sheet_name='Summary', index=False)
                     
-                    # Add a summary sheet
-                    if not export_df.empty:
-                        summary_data = {
-                            'Metric': ['Total Entries', 'Total Hours', 'Average Daily Hours', 'Date Range'],
-                            'Value': [
-                                len(export_df),
-                                export_df['total_hours'].sum() if 'total_hours' in export_df.columns else 0,
-                                export_df['total_hours'].mean() if 'total_hours' in export_df.columns else 0,
-                                f"{export_df['date'].min()} to {export_df['date'].max()}" if 'date' in export_df.columns else 'N/A'
-                            ]
-                        }
-                        summary_df = pd.DataFrame(summary_data)
-                        summary_df.to_excel(writer, sheet_name='Summary', index=False)
+                    output.seek(0)
+                    return output.read()
                 
-                output.seek(0)
-                return output.read()
+                except ImportError:
+                    # Fallback to CSV if openpyxl is not available
+                    st.warning("Excel export requires openpyxl. Providing CSV format instead.")
+                    output = io.StringIO()
+                    export_df.to_csv(output, index=False)
+                    return output.getvalue().encode('utf-8')
             
             elif format_type == 'json':
                 # Convert DataFrame to JSON
@@ -1273,11 +1282,21 @@ class ProductivityTracker:
             if st.button("📋 Export Excel", use_container_width=True):
                 data = self.export_data(user['id'], 'excel')
                 if data != b"No data available for export":
+                    # Check if it's actually Excel data or CSV fallback
+                    filename = f"productivity_data_{user['name']}_{date.today()}"
+                    try:
+                        import openpyxl
+                        file_ext = ".xlsx"
+                        mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    except ImportError:
+                        file_ext = ".csv"
+                        mime_type = "text/csv"
+                        
                     st.download_button(
-                        "⬇️ Download Excel",
+                        "⬇️ Download",
                         data,
-                        f"productivity_data_{user['name']}_{date.today()}.xlsx",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        filename + file_ext,
+                        mime_type
                     )
                 else:
                     st.warning("No data available to export.")
