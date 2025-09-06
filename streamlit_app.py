@@ -645,9 +645,9 @@ class ProductivityTracker:
             else:
                 return b"Invalid format specified"
         
-    except Exception as e:
-        st.error(f"Export failed: {str(e)}")
-        return b"Export failed due to an error"
+        except Exception as e:
+            st.error(f"Export failed: {str(e)}")
+            return b"Export failed due to an error"
     
     
     def run(self):
