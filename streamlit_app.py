@@ -605,6 +605,32 @@ class ProductivityTracker:
             columns_to_remove = ['id', 'user_id']
             export_df = export_df.drop(columns=[col for col in columns_to_remove if col in export_df.columns])
             
+            # Handle datetime columns for Excel compatibility
+            def fix_datetime_columns(df):
+                """Convert timezone-aware datetime columns to timezone-naive"""
+                for col in df.columns:
+                    if df[col].dtype == 'object':
+                        # Check if column contains datetime-like strings or objects
+                        try:
+                            # Try to convert to datetime
+                            temp_series = pd.to_datetime(df[col], errors='coerce')
+                            if temp_series.notna().any():
+                                # If conversion worked, replace the column
+                                df[col] = temp_series
+                        except:
+                            pass
+                    
+                    # Handle datetime columns
+                    if pd.api.types.is_datetime64_any_dtype(df[col]):
+                        if hasattr(df[col].dtype, 'tz') and df[col].dtype.tz is not None:
+                            # Convert timezone-aware to timezone-naive
+                            df[col] = df[col].dt.tz_localize(None)
+                        elif df[col].dtype == 'datetime64[ns, UTC]':
+                            # Handle UTC timezone specifically
+                            df[col] = df[col].dt.tz_localize(None)
+                
+                return df
+            
             # Format the data based on requested format
             if format_type == 'csv':
                 output = io.StringIO()
@@ -614,6 +640,10 @@ class ProductivityTracker:
             elif format_type == 'excel':
                 try:
                     import openpyxl
+                    
+                    # Fix datetime columns before Excel export
+                    export_df = fix_datetime_columns(export_df)
+                    
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='openpyxl') as writer:
                         export_df.to_excel(writer, sheet_name='Productivity_Data', index=False)
@@ -625,7 +655,7 @@ class ProductivityTracker:
                                 'Value': [
                                     len(export_df),
                                     export_df['total_hours'].sum() if 'total_hours' in export_df.columns else 0,
-                                    export_df['total_hours'].mean() if 'total_hours' in export_df.columns else 0,
+                                    round(export_df['total_hours'].mean(), 2) if 'total_hours' in export_df.columns else 0,
                                     f"{export_df['date'].min()} to {export_df['date'].max()}" if 'date' in export_df.columns else 'N/A'
                                 ]
                             }
@@ -641,15 +671,27 @@ class ProductivityTracker:
                     output = io.StringIO()
                     export_df.to_csv(output, index=False)
                     return output.getvalue().encode('utf-8')
+                except Exception as e:
+                    # Handle other Excel-related errors
+                    st.error(f"Excel export failed: {str(e)}. Providing CSV format instead.")
+                    output = io.StringIO()
+                    export_df.to_csv(output, index=False)
+                    return output.getvalue().encode('utf-8')
             
             elif format_type == 'json':
                 # Convert DataFrame to JSON
+                # Handle datetime serialization for JSON
+                export_df_json = export_df.copy()
+                for col in export_df_json.columns:
+                    if pd.api.types.is_datetime64_any_dtype(export_df_json[col]):
+                        export_df_json[col] = export_df_json[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+                
                 json_data = {
-                    'export_date': datetime.now().isoformat(),
-                    'total_entries': len(export_df),
-                    'data': export_df.to_dict('records')
+                    'export_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'total_entries': len(export_df_json),
+                    'data': export_df_json.to_dict('records')
                 }
-                return json.dumps(json_data, indent=2, default=str).encode('utf-8')
+                return json.dumps(json_data, indent=2).encode('utf-8')
             
             else:
                 return b"Invalid format specified"
